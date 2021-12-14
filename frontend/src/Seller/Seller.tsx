@@ -6,22 +6,28 @@ import {
   TextField,
 } from "@material-ui/core";
 import { useEffect, useState } from "react";
+import { useCookies } from 'react-cookie';
 
-export const Seller = ({ sellerId }: { sellerId: string }) => {
-  const [seller, setSeller] = useState<{
-    id: number;
-    name: string;
-    handle: string;
-  } | null>(null);
+type Seller = {
+  id: number;
+  name: string;
+  handle: string;
+}
+
+export const SellerPage = ({ sellerId }: { sellerId: string }) => {
+  const [cookies, setCookie] = useCookies(['csrftoken']);
+  const [seller, setSeller] = useState<Seller | null>(null);
   const [fetchSellerError, setFetchSellerError] = useState<string | null>(null);
+  const [sellerHandleInput, setSellerHandleInput] = useState<string>('');
 
   useEffect(() => {
-    fetch(`/api/sellers/${sellerId}`)
+    fetch(`/api/sellers/${sellerId}/`)
       .then(async (res) => {
         if (!res.ok) throw new Error("Failed to fetch seller");
 
         const data = await res.json();
         setSeller(data);
+        setSellerHandleInput(data.handle);
       })
       .catch((err) => {
         setFetchSellerError(err.message);
@@ -35,6 +41,31 @@ export const Seller = ({ sellerId }: { sellerId: string }) => {
   if (!seller) {
     return <div>pending</div>;
   }
+
+  const onSubmit = () => {
+    console.log(seller, sellerHandleInput);
+    fetch(`/api/sellers/${sellerId}/`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...seller,
+        handle: sellerHandleInput,
+      }),
+      headers: {
+             'X-CSRFTOKEN': cookies['csrftoken'],
+             'Content-Type': 'application/json',
+         },
+      })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to update seller");
+
+        const data = await res.json();
+        setSeller(data);
+        setSellerHandleInput(data.handle);
+      })
+      .catch((err) => {
+        setFetchSellerError(err.message);
+      });
+  };
 
   return (
     <Card>
@@ -62,9 +93,10 @@ export const Seller = ({ sellerId }: { sellerId: string }) => {
             label="Seller Handle"
             fullWidth={true}
             style={{ margin: 8 }}
-            value={seller.handle}
+            value={sellerHandleInput}
+            onChange={(e) => setSellerHandleInput(e.target.value)}
           />
-          <Button variant="contained" color="primary">
+          <Button variant="contained" color="primary" onClick={onSubmit}>
             Update
           </Button>
         </form>
